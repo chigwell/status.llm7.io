@@ -1180,13 +1180,24 @@ function formatAxisSeconds(value: number): string {
   return `${value.toFixed(1)}s`;
 }
 
-function formatTooltipValue(value: unknown, name: unknown): [ReactNode, string] {
-  const label = typeof name === "string" ? metricLabels[name] ?? name : String(name);
+function formatTooltipValue(
+  value: unknown,
+  name: unknown,
+  item?: { dataKey?: unknown },
+): [ReactNode, string] {
+  const metricKey =
+    typeof item?.dataKey === "string"
+      ? item.dataKey
+      : typeof name === "string"
+        ? name
+        : "";
+  const label =
+    typeof name === "string" ? metricLabels[metricKey] ?? name : String(name);
   const formattedValue =
     typeof value === "number"
-      ? name === "averageAvailability"
+      ? metricKey === "averageAvailability"
         ? formatPercent(value, 1)
-        : name === "averageResponseTimeSeconds"
+        : metricKey === "averageResponseTimeSeconds"
           ? formatSeconds(value)
         : formatInteger(value)
       : String(value);
