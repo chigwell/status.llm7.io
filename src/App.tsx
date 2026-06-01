@@ -18,7 +18,7 @@ export default function App() {
         visibleModelLimit={10}
         theme="dark"
         title="LLM7 live system status"
-        subtitle="A transparent real-time view of request pressure, model reliability, timeouts, rate limits, and token movement across the API."
+        subtitle="See current API health at a glance: which models are available, how quickly they respond, and how much traffic is flowing right now."
       />
     </main>
   );
