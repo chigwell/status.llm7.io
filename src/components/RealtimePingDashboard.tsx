@@ -50,6 +50,13 @@ export type ModelMetrics = {
 export type PingResponse = {
   message: string;
   active_requests_last_60s: number;
+  unique_clients_last_60s: number;
+  unique_clients_last_60s_breakdown: {
+    a: number;
+    t: number;
+    l: number;
+    p: number;
+  };
   model_metrics_last_60s: Record<string, ModelMetrics>;
 };
 
@@ -80,6 +87,10 @@ export type PingSnapshot = {
   collectedAt: number;
   timeLabel: string;
   activeRequestsLast60s: number;
+  uniqueClientsLast60s: number;
+  anonymousClientsLast60s: number;
+  tokenClientsLast60s: number;
+  priorityClientsLast60s: number;
   success200: number;
   errorsTotal: number;
   errors4xx: number;
@@ -142,6 +153,10 @@ const DEFAULT_CHART_POINT_LIMIT = 120;
 
 const metricLabels: Record<string, string> = {
   activeRequestsLast60s: "Active requests",
+  uniqueClientsLast60s: "Total clients",
+  anonymousClientsLast60s: "Anonymous clients",
+  tokenClientsLast60s: "Token clients",
+  priorityClientsLast60s: "Priority clients",
   success200: "HTTP 200",
   errorsTotal: "Errors",
   errors4xx: "4xx",
@@ -465,8 +480,12 @@ export function RealtimePingDashboard({
 
         <MetricCard
           label="HTTP 200"
-          value={formatInteger(latest?.success200 ?? 0)}
-          hint={`${formatPercent(latest?.successRate ?? 0)} success rate`}
+          value={formatPercent(latest?.successRate ?? 0)}
+          hint={`Avg availability ${formatPercent(
+            latest?.averageAvailability ?? 0,
+            1,
+          )} | ${formatInteger(latest?.activeModelCount ?? 0)} models with attempts`}
+          tone={(latest?.averageAvailability ?? 1) < 0.7 ? "warning" : "normal"}
         />
 
         <MetricCard
@@ -476,10 +495,9 @@ export function RealtimePingDashboard({
         />
 
         <MetricCard
-          label="Avg availability"
-          value={formatPercent(latest?.averageAvailability ?? 0, 1)}
-          hint="models with attempts"
-          tone={(latest?.averageAvailability ?? 1) < 0.7 ? "warning" : "normal"}
+          label="Total clients"
+          value={formatInteger(latest?.uniqueClientsLast60s ?? 0)}
+          hint="unique clients, last 60 seconds"
         />
 
         <MetricCard
@@ -495,54 +513,95 @@ export function RealtimePingDashboard({
         />
       </div>
 
-      <ChartCard
-        title="Availability over time"
-        subtitle="Average availability across models with attempts in each rolling window."
-        fullWidth
-      >
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartHistory}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="timeLabel" minTickGap={36} />
-            <YAxis
-              yAxisId="availability"
-              domain={[0, 1]}
-              tickFormatter={formatAxisPercent}
-              width={52}
-            />
-            <YAxis
-              yAxisId="latency"
-              orientation="right"
-              tickFormatter={formatAxisSeconds}
-              width={56}
-            />
-            <Tooltip formatter={formatTooltipValue} />
-            <Area
-              yAxisId="availability"
-              type="monotone"
-              dataKey="averageAvailability"
-              name={metricLabels.averageAvailability}
-              stroke="var(--llm7-good)"
-              fill="var(--llm7-good-soft)"
-              strokeWidth={2.2}
-              dot={false}
-              isAnimationActive={false}
-            />
-            <Line
-              yAxisId="latency"
-              type="monotone"
-              dataKey="averageResponseTimeSeconds"
-              name={metricLabels.averageResponseTimeSeconds}
-              stroke="var(--llm7-chart-b)"
-              strokeWidth={2.2}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
       <div className="llm7-chart-grid">
+        <ChartCard
+          title="Availability over time"
+          subtitle="Average availability across models with attempts in each rolling window."
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartHistory}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="timeLabel" minTickGap={36} />
+              <YAxis
+                yAxisId="availability"
+                domain={[0, 1]}
+                tickFormatter={formatAxisPercent}
+                width={52}
+              />
+              <YAxis
+                yAxisId="latency"
+                orientation="right"
+                tickFormatter={formatAxisSeconds}
+                width={56}
+              />
+              <Tooltip formatter={formatTooltipValue} />
+              <Area
+                yAxisId="availability"
+                type="monotone"
+                dataKey="averageAvailability"
+                name={metricLabels.averageAvailability}
+                stroke="var(--llm7-good)"
+                fill="var(--llm7-good-soft)"
+                strokeWidth={2.2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                yAxisId="latency"
+                type="monotone"
+                dataKey="averageResponseTimeSeconds"
+                name={metricLabels.averageResponseTimeSeconds}
+                stroke="var(--llm7-chart-b)"
+                strokeWidth={2.2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard
+          title="Client mix"
+          subtitle="Unique clients by access type in the rolling window."
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartHistory}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="timeLabel" minTickGap={36} />
+              <YAxis allowDecimals={false} width={48} />
+              <Tooltip formatter={formatTooltipValue} />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="anonymousClientsLast60s"
+                name={metricLabels.anonymousClientsLast60s}
+                stroke="var(--llm7-chart-a)"
+                strokeWidth={2.2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="tokenClientsLast60s"
+                name={metricLabels.tokenClientsLast60s}
+                stroke="var(--llm7-chart-b)"
+                strokeWidth={2.2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="priorityClientsLast60s"
+                name={metricLabels.priorityClientsLast60s}
+                stroke="var(--llm7-warn)"
+                strokeWidth={2.2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
         <ChartCard
           title="Traffic pressure"
           subtitle="Active requests reported by the endpoint."
@@ -792,20 +851,13 @@ function ChartCard({
   title,
   subtitle,
   children,
-  fullWidth = false,
 }: {
   title: string;
   subtitle: string;
   children: ReactNode;
-  fullWidth?: boolean;
 }) {
   return (
-    <div
-      className={[
-        "llm7-chart-card",
-        fullWidth ? "llm7-chart-card--full" : "",
-      ].join(" ")}
-    >
+    <div className="llm7-chart-card">
       <div className="llm7-chart-header">
         <h3>{title}</h3>
         <p>{subtitle}</p>
@@ -873,6 +925,12 @@ function createPingSnapshot(raw: PingResponse, id: number): PingSnapshot {
     collectedAt,
     timeLabel: formatTimeLabel(collectedAt),
     activeRequestsLast60s: raw.active_requests_last_60s,
+    uniqueClientsLast60s: raw.unique_clients_last_60s,
+    anonymousClientsLast60s: raw.unique_clients_last_60s_breakdown.a,
+    tokenClientsLast60s: raw.unique_clients_last_60s_breakdown.t,
+    priorityClientsLast60s:
+      raw.unique_clients_last_60s_breakdown.l +
+      raw.unique_clients_last_60s_breakdown.p,
     success200: aggregate.success200,
     errorsTotal: aggregate.errorsTotal,
     errors4xx: aggregate.errors4xx,
@@ -939,6 +997,14 @@ export function normalisePingResponse(payload: unknown): PingResponse {
     throw new Error("Ping response is not a JSON object");
   }
 
+  const clientBreakdown = normaliseClientBreakdown(
+    payload.unique_clients_last_60s_breakdown,
+  );
+  const uniqueClientsLast60s =
+    typeof payload.unique_clients_last_60s === "number" &&
+    Number.isFinite(payload.unique_clients_last_60s)
+      ? payload.unique_clients_last_60s
+      : Object.values(clientBreakdown).reduce((sum, count) => sum + count, 0);
   const rawModelMetrics = isRecord(payload.model_metrics_last_60s)
     ? payload.model_metrics_last_60s
     : {};
@@ -956,7 +1022,22 @@ export function normalisePingResponse(payload: unknown): PingResponse {
     active_requests_last_60s: readFiniteNumber(
       payload.active_requests_last_60s,
     ),
+    unique_clients_last_60s: uniqueClientsLast60s,
+    unique_clients_last_60s_breakdown: clientBreakdown,
     model_metrics_last_60s: modelMetrics,
+  };
+}
+
+function normaliseClientBreakdown(
+  value: unknown,
+): PingResponse["unique_clients_last_60s_breakdown"] {
+  const record = isRecord(value) ? value : {};
+
+  return {
+    a: readFiniteNumber(record.a),
+    t: readFiniteNumber(record.t),
+    l: readFiniteNumber(record.l),
+    p: readFiniteNumber(record.p),
   };
 }
 

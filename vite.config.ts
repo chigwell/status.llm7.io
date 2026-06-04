@@ -63,10 +63,21 @@ function createMockPing() {
     (sum, metrics) => sum + metrics.success_200 + metrics.errors.total,
     0,
   );
+  const unique_clients_last_60s_breakdown = {
+    a: Math.max(0, Math.round(10 + Math.sin(tick / 7) * 4)),
+    t: Math.max(0, Math.round(18 + Math.cos(tick / 5) * 7)),
+    l: Math.max(0, Math.round(1 + Math.sin(tick / 11))),
+    p: Math.max(0, Math.round(Math.max(0, Math.cos(tick / 13)))),
+  };
+  const unique_clients_last_60s = Object.values(
+    unique_clients_last_60s_breakdown,
+  ).reduce((sum, count) => sum + count, 0);
 
   return {
     message: "pong",
     active_requests_last_60s,
+    unique_clients_last_60s,
+    unique_clients_last_60s_breakdown,
     model_metrics_last_60s,
   };
 }
